@@ -21,7 +21,5 @@ build/
 *.swo
 *.ipynb_checkpoints/
 .env
-.venv/
 outputs/
-web/dist/
-api/__pycache__/
+.vscode/
