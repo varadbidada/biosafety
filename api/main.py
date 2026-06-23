@@ -5,6 +5,7 @@ import time
 from collections import defaultdict
 from contextlib import asynccontextmanager
 
+import requests as http_requests
 import structlog
 import numpy as np
 import pandas as pd
@@ -27,6 +28,7 @@ from api.schemas import (
     MapOverviewResponse,
     DistrictOverview,
     HealthResponse,
+    CoordinateResponse,
     PredictionInput,
 )
 from api.services.prediction import get_model_service
@@ -49,6 +51,7 @@ class RateLimiter:
 
 
 _districts_cache: dict[str, list[str] | None] = {"districts": None}
+_coords_cache: dict[str, tuple[float, float]] = {}
 
 logger = structlog.get_logger()
 
@@ -163,6 +166,29 @@ def health_check():
         version="0.1.0",
         models_loaded=svc.is_healthy(),
     )
+
+
+@app.get("/coordinates/{district}", response_model=CoordinateResponse)
+def get_coordinates(district: str):
+    if district in _coords_cache:
+        lat, lon = _coords_cache[district]
+        return CoordinateResponse(district=district, lat=lat, lon=lon)
+    try:
+        r = http_requests.get(
+            "https://nominatim.openstreetmap.org/search",
+            params={"format": "json", "q": f"{district}, India"},
+            headers={"User-Agent": "DengueCast/1.0"},
+            timeout=5,
+        )
+        data = r.json()
+        if data:
+            lat = float(data[0]["lat"])
+            lon = float(data[0]["lon"])
+            _coords_cache[district] = (lat, lon)
+            return CoordinateResponse(district=district, lat=lat, lon=lon)
+    except Exception:
+        logger.warning("nominatim_failed", district=district)
+    return CoordinateResponse(district=district, lat=20.5937, lon=78.9629)
 
 
 @app.post("/predict", response_model=PredictionResponse)

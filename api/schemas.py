@@ -105,3 +105,9 @@ class HealthResponse(BaseModel):
     status: str
     version: str
     models_loaded: bool
+
+
+class CoordinateResponse(BaseModel):
+    district: str
+    lat: float
+    lon: float

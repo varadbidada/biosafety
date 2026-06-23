@@ -13,13 +13,20 @@ biosafety/
 │       └── prediction.py  # ModelService singleton
 ├── web/               # React + Vite frontend
 │   ├── src/
-│   │   ├── App.jsx        # Main dashboard
-│   │   ├── App.jsx.backup
+│   │   ├── App.tsx         # Main dashboard (TypeScript)
 │   │   ├── App.css
 │   │   ├── index.css
-│   │   ├── main.jsx
-│   │   ├── components/EnhancedMap.jsx
-│   │   └── types/api.ts    # TypeScript API types
+│   │   ├── main.tsx        # Entry point
+│   │   ├── components/
+│   │   │   ├── EnhancedMap.tsx  # Map component (TypeScript)
+│   │   │   └── ErrorBoundary.tsx
+│   │   ├── types/
+│   │   │   ├── api.ts          # TypeScript API types
+│   │   │   └── leaflet.heat.d.ts
+│   │   └── tests/
+│   │       ├── setup.ts
+│   │       ├── App.test.tsx         (2 tests)
+│   │       └── ErrorBoundary.test.tsx (4 tests)
 │   ├── package.json
 │   ├── tsconfig.json / tsconfig.app.json / tsconfig.node.json
 │   ├── vite.config.js
@@ -96,11 +103,16 @@ biosafety/
 - [x] Global exception handler catching unhandled errors → proper JSON 500
 - [x] X-Request-ID header on every response for request tracing
 
-### Phase 4: Frontend Professionalization (NOT STARTED)
-- [ ] Full TypeScript migration (App.tsx, EnhancedMap.tsx)
-- [ ] Add Vitest + React Testing Library unit tests
-- [ ] Add React Error Boundaries
-- [ ] Replace Nominatim with cached GeoJSON centroids
+### Phase 4: Frontend Professionalization (COMPLETED)
+- [x] Full TypeScript migration (App.tsx, EnhancedMap.tsx, main.tsx)
+- [x] React ErrorBoundary component with fallback UI + retry button
+- [x] ErrorBoundary wrapping app root + map component
+- [x] Cleaned unused imports and dead code (generateHotspots, Nominatim direct call)
+- [x] Replaced direct Nominatim frontend calls → backend `/coordinates/{district}` endpoint
+- [x] Backend coordinates endpoint with lazy Nominatim caching (in-memory)
+- [x] Vitest + React Testing Library + jsdom setup
+- [x] 6 frontend tests (ErrorBoundary: 4, App smoke: 2)
+- [x] Frontend production build: ~582 KB gzipped (no errors)
 
 ### Phase 5: Data & Infrastructure (NOT STARTED)
 - [ ] GitHub Actions CI
@@ -109,9 +121,9 @@ biosafety/
 
 ## Current Issues / Known Problems
 
-1. **Synthetic data**: All data is synthetic (random). Model metrics (RMSE ~18, R2 ~0) reflect random data.
+1. **Synthetic data**: All data is synthetic (random). Model metrics (RMSE ~4.25, R2 ~0) reflect random data.
 2. **scikit-learn version mismatch**: Scaler was saved with 1.6.1, loaded with 1.8.0. Non-critical.
-3. **frontend JSX not TypeScript**: App.jsx and EnhancedMap.jsx are still JSX (TypeScript config exists but not enforced).
+3. **Nominatim rate limits**: Backend `/coordinates/{district}` endpoint calls Nominatim on cache miss; mass scanning may hit rate limits.
 
 ## Quick Start (dev)
 
