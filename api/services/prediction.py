@@ -2,6 +2,7 @@ import os
 import sys
 import json
 import numpy as np
+import pandas as pd
 import torch
 import torch.nn as nn
 import xgboost as xgb
@@ -15,7 +16,6 @@ from config import (
     get_settings,
     get_model_path,
     get_feature_cols_path,
-    FEATURE_COLUMNS,
     EXPECTED_FEATURE_COUNT,
     XGB_REG_MODEL,
     XGB_CLF_MODEL,
@@ -24,22 +24,24 @@ from config import (
 )
 from api.schemas import PredictionResponse, ClimateData
 
+SEQ_LEN = 10
+
 
 class LSTMModel(nn.Module):
-    def __init__(self, input_size=17, hidden_size=96, num_layers=2, output_size=1):
+    def __init__(self, input_size=17, hidden_size=96, num_layers=2, output_size=1, dropout=0.2):
         super().__init__()
         self.lstm = nn.LSTM(
             input_size=input_size,
             hidden_size=hidden_size,
             num_layers=num_layers,
             batch_first=True,
+            dropout=dropout if num_layers > 1 else 0,
         )
         self.fc = nn.Linear(hidden_size, output_size)
 
     def forward(self, x):
         out, _ = self.lstm(x)
-        out = self.fc(out[:, -1, :])
-        return out
+        return self.fc(out[:, -1, :])
 
 
 class ModelService:
@@ -93,15 +95,27 @@ class ModelService:
             return "medium"
         return "high"
 
+    def _predict_lstm(self, sequence: np.ndarray) -> float:
+        """Predict using LSTM with a (seq_len, n_features) sequence."""
+        seq_scaled = self.lstm_scaler.transform(sequence)
+        seq_tensor = torch.tensor(seq_scaled, dtype=torch.float32).unsqueeze(0)
+        with torch.no_grad():
+            pred = float(self.lstm_model(seq_tensor).item())
+        return pred
+
+    def _build_sequence(self, features: list[float]) -> np.ndarray:
+        """Build a sequence for LSTM from a single feature vector by replication."""
+        return np.array([features] * SEQ_LEN, dtype=float)
+
     def predict_from_features(self, features: list[float]) -> PredictionResponse:
         x = np.array(features, dtype=float).reshape(1, -1)
 
         reg_pred = float(self.xgb_reg.predict(x)[0])
         clf_pred = int(self.xgb_clf.predict(x)[0])
 
-        x_scaled = self.lstm_scaler.transform(x)
-        x_lstm = torch.tensor(x_scaled, dtype=torch.float32).unsqueeze(0)
-        lstm_pred = float(self.lstm_model(x_lstm).item())
+        # Build sequence for LSTM (replicate single vector SEQ_LEN times)
+        seq = self._build_sequence(features)
+        lstm_pred = self._predict_lstm(seq)
 
         settings = get_settings()
         ensemble_pred = float(
@@ -139,6 +153,55 @@ class ModelService:
                 ),
             ),
         )
+
+    def predict_district(self, district: str) -> tuple[list[float], float, float, float] | None:
+        """Get latest feature vector + historical sequence for a district.
+        
+        Returns (features, xgb_pred, lstm_pred, ensemble_pred) or None if district not found.
+        """
+        root = _project_root
+        data_path = os.path.join(root, "data", "processed", "features_matrix.csv")
+        df = pd.read_csv(data_path)
+
+        df_d = df[df["district"] == district].copy()
+        if df_d.empty:
+            return None
+
+        df_d["week_start"] = pd.to_datetime(df_d["week_start"])
+        df_d = df_d.sort_values("week_start").reset_index(drop=True)
+
+        # Get the last SEQ_LEN rows for LSTM sequence
+        n_rows = len(df_d)
+        if n_rows >= SEQ_LEN:
+            seq_slice = df_d.iloc[n_rows - SEQ_LEN:]
+        else:
+            seq_slice = df_d.iloc[:]
+
+        seq_features = seq_slice[self.feature_cols].values.astype(float)
+
+        # Pad if not enough historical data
+        if len(seq_features) < SEQ_LEN:
+            pad = np.tile(seq_features[0], (SEQ_LEN - len(seq_features), 1))
+            seq_features = np.vstack([pad, seq_features])
+
+        latest_row = df_d.iloc[-1]
+        features = [float(latest_row[col]) for col in self.feature_cols]
+
+        # XGBoost prediction
+        x = np.array(features, dtype=float).reshape(1, -1)
+        reg_pred = float(self.xgb_reg.predict(x)[0])
+
+        # LSTM prediction using historical sequence
+        lstm_pred = self._predict_lstm(seq_features)
+
+        # Ensemble
+        settings = get_settings()
+        ensemble_pred = float(
+            settings.ensemble_weight_xgb * reg_pred
+            + settings.ensemble_weight_lstm * lstm_pred
+        )
+
+        return features, reg_pred, lstm_pred, ensemble_pred
 
     def is_healthy(self) -> bool:
         try:

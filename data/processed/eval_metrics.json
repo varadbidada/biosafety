@@ -1,0 +1,25 @@
+{
+  "ensemble_weight_xgb": 1.0,
+  "ensemble_weight_lstm": 0.0,
+  "xgb": {
+    "n_samples": 307118,
+    "mae": 3.41,
+    "rmse": 4.25,
+    "mape": 18.71,
+    "r2": 0.0
+  },
+  "lstm": {
+    "n_samples": 301817,
+    "mae": 3.41,
+    "rmse": 4.25,
+    "mape": 18.65,
+    "r2": -0.0
+  },
+  "ensemble": {
+    "n_samples": 301817,
+    "mae": 3.41,
+    "rmse": 4.25,
+    "mape": 18.72,
+    "r2": 0.0
+  }
+}

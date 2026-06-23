@@ -94,26 +94,29 @@ def list_districts():
 @app.get("/predict_latest")
 def predict_latest(district: str = Query("Adilabad")):
     svc = get_model_service()
+
+    result = svc.predict_district(district)
+    if result is None:
+        result = svc.predict_district("Adilabad")
+        if result is None:
+            from fastapi import HTTPException
+            raise HTTPException(status_code=404, detail="District not found")
+
+    features, reg_pred, lstm_pred, ensemble_pred = result
+    settings = get_settings()
+    predicted_cases_1w = max(0.0, ensemble_pred)
+    risk_level = classify_risk_level(predicted_cases_1w)
+
     root = get_project_root()
     data_path = os.path.join(root, "data", "processed", "features_matrix.csv")
     df = pd.read_csv(data_path)
-
     df_d = df[df["district"] == district].copy()
     if df_d.empty:
         df_d = df.copy()
-
     df_d["week_start"] = pd.to_datetime(df_d["week_start"])
     latest_row = df_d.sort_values("week_start").iloc[-1]
-
-    feature_cols = svc.feature_cols
-    features = [float(latest_row[col]) for col in feature_cols]
-
-    pred = svc.predict_from_features(features)
-
     history_week_start = latest_row["week_start"]
 
-    forecast_offset = float(svc.lstm_scaler.mean_[0]) if hasattr(svc.lstm_scaler, "mean_") else 1.0
-    predicted_cases_1w = pred.predicted_cases_next_week
     predicted_cases_2w = max(0.0, predicted_cases_1w * 1.05)
     predicted_cases_3w = max(0.0, predicted_cases_1w * 1.10)
 
@@ -132,11 +135,11 @@ def predict_latest(district: str = Query("Adilabad")):
         "predicted_cases_1w": predicted_cases_1w,
         "predicted_cases_2w": predicted_cases_2w,
         "predicted_cases_3w": predicted_cases_3w,
-        "risk_level": pred.risk_level,
-        "xgb_reg": pred.xgb_reg,
-        "xgb_clf": pred.xgb_clf,
-        "lstm": pred.lstm,
-        "ensemble": pred.ensemble,
+        "risk_level": risk_level,
+        "xgb_reg": reg_pred,
+        "xgb_clf": int(svc.xgb_clf.predict(np.array(features, dtype=float).reshape(1, -1))[0]),
+        "lstm": lstm_pred,
+        "ensemble": ensemble_pred,
         "climate": {
             "rainfall": float(latest_row.get("rainfall", 0.0)),
             "temperature": float(latest_row.get("temperature", 0.0)),
