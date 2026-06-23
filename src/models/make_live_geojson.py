@@ -13,9 +13,9 @@ from sklearn.preprocessing import StandardScaler
 # --------------------------------------
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 DATA_PATH = os.path.join(ROOT, "data/processed/features_matrix.csv")
-GEOJSON_PATH = os.path.join(ROOT, "web/public/india_districts.geojson")
+GEOJSON_PATH = os.path.join(ROOT, "frontend/public/india_districts.geojson")
 MODELS_PATH = os.path.join(ROOT, "models")
-OUTPUT_GEOJSON = os.path.join(ROOT, "web/public/live_risk.geojson")
+OUTPUT_GEOJSON = os.path.join(ROOT, "frontend/public/live_risk.geojson")
 
 print("ROOT =", ROOT)
 print("Loading data from:", DATA_PATH)

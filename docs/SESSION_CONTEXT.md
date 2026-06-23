@@ -11,7 +11,7 @@ biosafety/
 │   ├── schemas.py    # Pydantic models
 │   └── services/
 │       └── prediction.py  # ModelService singleton
-├── web/               # React + Vite frontend
+├── frontend/               # React + Vite frontend
 │   ├── src/
 │   │   ├── App.tsx         # Main dashboard (TypeScript)
 │   │   ├── App.css
@@ -132,7 +132,7 @@ biosafety/
 cd api; python -m uvicorn main:app --reload --port 8001
 
 # Terminal 2 - Frontend (from project root)
-cd web; npm run dev
+cd frontend; npm run dev
 
 # Or use script
 .\start.ps1

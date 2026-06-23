@@ -5,7 +5,7 @@ import geopandas as gpd
 from datetime import timedelta
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-GEOJSON_PATH = os.path.join(ROOT, "web/public/india_districts.geojson")
+GEOJSON_PATH = os.path.join(ROOT, "frontend/public/india_districts.geojson")
 OUT_PATH = os.path.join(ROOT, "data/processed/features_matrix.csv")
 
 print("GeoJSON:", GEOJSON_PATH)

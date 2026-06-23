@@ -67,7 +67,7 @@ GET /map_overview
 - Intensity metrics for map visualization
 - Useful for future district-level choropleth maps
 
-### 2. Frontend Updates (`web/src/App.jsx`)
+### 2. Frontend Updates (`frontend/src/App.tsx`)
 
 #### State Management
 
@@ -113,7 +113,7 @@ const fetchPrediction = async (district) => {
 - ❌ Hardcoded hotspot patterns
 - ❌ Random case calculations
 
-### 3. Map Component Updates (`web/src/components/EnhancedMap.jsx`)
+### 3. Map Component Updates (`frontend/src/components/EnhancedMap.tsx`)
 
 #### Accurate Marker Sizing
 

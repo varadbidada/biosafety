@@ -11,7 +11,7 @@
 
 ## ✅ Enhancements Implemented
 
-### 1. Enhanced Map Component (`web/src/components/EnhancedMap.jsx`)
+### 1. Enhanced Map Component (`frontend/src/components/EnhancedMap.jsx`)
 
 #### Features Added:
 
@@ -42,7 +42,7 @@
   - Temperature, Rainfall, NDVI
   - Hotspot type classification
 
-### 2. Updated Main App (`web/src/App.jsx`)
+### 2. Updated Main App (`frontend/src/App.jsx`)
 
 #### Changes:
 
@@ -52,7 +52,7 @@
 - ✅ Updated imports and dependencies
 - ✅ Maintained all existing functionality
 
-### 3. Enhanced Styling (`web/src/index.css`)
+### 3. Enhanced Styling (`frontend/src/index.css`)
 
 #### New Styles Added:
 
@@ -66,7 +66,7 @@
 - ✅ Loading overlays
 - ✅ Map legend styling
 
-### 4. Dependencies Updated (`web/package.json`)
+### 4. Dependencies Updated (`frontend/package.json`)
 
 #### New Package:
 
@@ -135,16 +135,16 @@ spin: 1s linear infinite
 
 ### Created:
 
-1. ✅ `web/src/components/EnhancedMap.jsx` (New component)
+1. ✅ `frontend/src/components/EnhancedMap.jsx` (New component)
 2. ✅ `ENHANCEMENTS.md` (Documentation)
 3. ✅ `IMPLEMENTATION_SUMMARY.md` (This file)
-4. ✅ `web/src/App.jsx.backup` (Backup of original)
+4. ✅ `frontend/src/App.jsx.backup` (Backup of original)
 
 ### Modified:
 
-1. ✅ `web/src/App.jsx` (Integrated EnhancedMap)
-2. ✅ `web/src/index.css` (Added animations & styles)
-3. ✅ `web/package.json` (Added leaflet.heat)
+1. ✅ `frontend/src/App.jsx` (Integrated EnhancedMap)
+2. ✅ `frontend/src/index.css` (Added animations & styles)
+3. ✅ `frontend/package.json` (Added leaflet.heat)
 
 ### Unchanged:
 
@@ -187,7 +187,7 @@ python -m uvicorn main:app --reload --port 8001
 2. **Frontend (Terminal 2):**
 
 ```bash
-cd web
+cd frontend
 npm run dev
 ```
 

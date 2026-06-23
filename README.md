@@ -7,14 +7,14 @@ AI-powered dengue outbreak forecasting system for Indian districts, using an ens
 ```bash
 # Install dependencies
 pip install -r requirements.txt
-cd web && npm install && cd ..
+cd frontend && npm install && cd ..
 
 # Start both servers
 .\start.ps1
 
 # Or start manually:
 # Terminal 1: cd api && python -m uvicorn main:app --reload --port 8001
-# Terminal 2: cd web && npm run dev
+# Terminal 2: cd frontend && npm run dev
 ```
 
 - **Frontend:** http://localhost:5174
@@ -29,7 +29,7 @@ biosafety/
 │   ├── main.py        # API endpoints
 │   ├── schemas.py     # Pydantic request/response models
 │   └── services/      # Business logic (prediction, etc.)
-├── web/               # React + Vite frontend
+├── frontend/               # React + Vite frontend
 │   ├── src/
 │   │   ├── App.tsx    # Main dashboard
 │   │   ├── components/

@@ -82,7 +82,7 @@
 ### Component Structure
 
 ```
-web/src/
+frontend/src/
 ├── components/
 │   └── EnhancedMap.jsx       # New enhanced map component
 ├── App.jsx                    # Updated to use EnhancedMap
@@ -134,7 +134,7 @@ web/src/
 1. **Install Dependencies:**
 
 ```bash
-cd web
+cd frontend
 npm install
 ```
 
@@ -240,8 +240,8 @@ http://localhost:5174
 
 To add more enhancements:
 
-1. Create new components in `web/src/components/`
-2. Add styles to `web/src/index.css`
+1. Create new components in `frontend/src/components/`
+2. Add styles to `frontend/src/index.css`
 3. Update `EnhancedMap.jsx` with new features
 4. Document changes in this file
 

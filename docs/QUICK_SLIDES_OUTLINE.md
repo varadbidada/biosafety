@@ -83,7 +83,7 @@ _"We've proven the technology works. Now we need partnership to deploy it and sa
 ### Before Presentation:
 
 - [ ] Start backend: `cd api && python -m uvicorn main:app --reload --port 8001`
-- [ ] Start frontend: `cd web && npm run dev`
+- [ ] Start frontend: `cd frontend && npm run dev`
 - [ ] Open browser to http://localhost:5174
 - [ ] Test all features work
 - [ ] Prepare backup screenshots

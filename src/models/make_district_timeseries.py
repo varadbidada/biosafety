@@ -4,7 +4,7 @@ import pandas as pd
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 DATA_PATH = os.path.join(ROOT, "data/processed/features_matrix.csv")
-OUT_DIR = os.path.join(ROOT, "web/public/district_ts")
+OUT_DIR = os.path.join(ROOT, "frontend/public/district_ts")
 
 os.makedirs(OUT_DIR, exist_ok=True)
 

@@ -16,7 +16,7 @@ Write-Host ""
 
 if ($Install) {
     Write-Host "[1/2] Installing frontend dependencies..." -ForegroundColor Green
-    Push-Location "$Root\web"
+    Push-Location "$Root\frontend"
     npm install
     if ($LASTEXITCODE -ne 0) { Write-Error "npm install failed"; exit 1 }
     Pop-Location
@@ -44,7 +44,7 @@ if (-not $NoFrontend) {
     Write-Host "Starting frontend (Vite) on port $WebPort ..." -ForegroundColor Yellow
     $frontendJob = Start-Job -ScriptBlock {
         param($r, $p)
-        Set-Location "$r\web"
+        Set-Location "$r\frontend"
         npm run dev -- --port $p
     } -ArgumentList $Root, $WebPort
     Write-Host "  → Frontend at http://localhost:$WebPort" -ForegroundColor Green

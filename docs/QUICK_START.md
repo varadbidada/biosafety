@@ -18,7 +18,7 @@ pip install fastapi uvicorn torch xgboost scikit-learn pandas numpy joblib
 ### 2. Install Frontend Dependencies
 
 ```bash
-cd web
+cd frontend
 npm install
 ```
 
@@ -38,7 +38,7 @@ python -m uvicorn main:app --reload --port 8001
 
 ```bash
 # From project root
-cd web
+cd frontend
 npm run dev
 ```
 
@@ -53,7 +53,7 @@ Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd api; python -m
 **Start Frontend:**
 
 ```powershell
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd web; npm run dev"
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd frontend; npm run dev"
 ```
 
 ## Access the Application
@@ -180,13 +180,13 @@ npm install
 **To modify map behavior:**
 
 ```javascript
-// Edit: web/src/components/EnhancedMap.jsx
+// Edit: frontend/src/components/EnhancedMap.tsx
 ```
 
 **To change styling:**
 
 ```css
-/* Edit: web/src/index.css */
+/* Edit: frontend/src/index.css */
 ```
 
 **To update API:**
@@ -240,7 +240,7 @@ python -m uvicorn main:app --reload  # Backend
 
 # Build for production
 npm run build                  # Frontend
-# Creates: web/dist/
+# Creates: frontend/dist/
 
 # Preview production build
 npm run preview                # Frontend
@@ -268,7 +268,7 @@ npm run preview                # Frontend
 DengueCastIndia/
 ├── api/                    # Backend
 │   └── main.py            # FastAPI app
-├── web/                    # Frontend
+├── frontend/                    # Frontend
 │   ├── src/
 │   │   ├── components/
 │   │   │   └── EnhancedMap.jsx
