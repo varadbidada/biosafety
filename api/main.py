@@ -1,13 +1,16 @@
 import os
 import sys
-import json
-import logging
+import uuid
+import time
+from collections import defaultdict
 from contextlib import asynccontextmanager
 
+import structlog
 import numpy as np
 import pandas as pd
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, Query, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 _project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _project_root not in sys.path:
@@ -29,6 +32,27 @@ from api.schemas import (
 from api.services.prediction import get_model_service
 
 
+class RateLimiter:
+    def __init__(self, max_requests: int = 60, window_seconds: int = 60):
+        self._buckets: dict[str, list[float]] = defaultdict(list)
+        self._max = max_requests
+        self._window = window_seconds
+
+    def check(self, key: str = "default") -> bool:
+        now = time.monotonic()
+        timestamps = self._buckets[key]
+        self._buckets[key] = [t for t in timestamps if now - t < self._window]
+        if len(self._buckets[key]) >= self._max:
+            return False
+        self._buckets[key].append(now)
+        return True
+
+
+_districts_cache: dict[str, list[str] | None] = {"districts": None}
+
+logger = structlog.get_logger()
+
+
 def classify_risk_level(pred: float) -> str:
     s = get_settings()
     if pred < s.low_risk_threshold:
@@ -40,8 +64,20 @@ def classify_risk_level(pred: float) -> str:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logging.basicConfig(level=get_settings().log_level)
-    logger = logging.getLogger("denguecast")
+    settings = get_settings()
+    structlog.configure(
+        processors=[
+            structlog.contextvars.merge_contextvars,
+            structlog.stdlib.add_log_level,
+            structlog.processors.TimeStamper(fmt="iso"),
+            structlog.dev.ConsoleRenderer()
+            if settings.log_format == "dev"
+            else structlog.processors.JSONRenderer(),
+        ],
+        wrapper_class=structlog.stdlib.BoundLogger,
+        context_class=dict,
+        cache_logger_on_first_use=True,
+    )
     logger.info("Initializing model service...")
     get_model_service()
     logger.info("Model service ready")
@@ -65,6 +101,59 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+rate_limiter = RateLimiter(max_requests=60, window_seconds=60)
+
+# ─── Middleware ───────────────────────────────────────────────────────
+
+
+@app.middleware("http")
+async def add_request_id_and_catch_errors(request: Request, call_next):
+    request_id = request.headers.get("X-Request-ID", uuid.uuid4().hex[:8])
+    structlog.contextvars.clear_contextvars()
+    structlog.contextvars.bind_contextvars(request_id=request_id)
+    try:
+        response = await call_next(request)
+    except Exception:
+        logger.exception("Unhandled request error")
+        response = JSONResponse(
+            status_code=500, content={"detail": "Internal server error"}
+        )
+    response.headers["X-Request-ID"] = request_id
+    return response
+
+
+# ─── Exception Handlers ──────────────────────────────────────────────
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+
+
+# ─── Helper ──────────────────────────────────────────────────────────
+
+
+def _cached_districts() -> list[str]:
+    if _districts_cache["districts"] is not None:
+        return _districts_cache["districts"]
+    root = get_project_root()
+    data_path = os.path.join(root, "data", "processed", "features_matrix.csv")
+    df = pd.read_csv(data_path, usecols=["district"]).dropna()
+    districts = sorted(df["district"].unique().tolist())
+    _districts_cache["districts"] = districts
+    return districts
+
+
+def _ensemble_results_df() -> pd.DataFrame:
+    root = get_project_root()
+    path = os.path.join(root, "data", "processed", "ensemble_results.csv")
+    df = pd.read_csv(path)
+    df["week_start"] = pd.to_datetime(df["week_start"])
+    return df
+
+
+# ─── Endpoints ───────────────────────────────────────────────────────
+
 
 @app.get("/health", response_model=HealthResponse)
 def health_check():
@@ -77,18 +166,19 @@ def health_check():
 
 
 @app.post("/predict", response_model=PredictionResponse)
-def predict(data: PredictionInput):
+def predict(data: PredictionInput, request: Request):
+    client_ip = request.client.host if request.client else "unknown"
+    if not rate_limiter.check(client_ip):
+        raise HTTPException(status_code=429, detail="Rate limit exceeded")
     svc = get_model_service()
-    return svc.predict_from_features(data.features)
+    resp = svc.predict_from_features(data.features)
+    logger.info("predict_request", client_ip=client_ip)
+    return resp
 
 
 @app.get("/districts", response_model=DistrictListResponse)
 def list_districts():
-    root = get_project_root()
-    data_path = os.path.join(root, "data", "processed", "features_matrix.csv")
-    df = pd.read_csv(data_path, usecols=["district"]).dropna()
-    districts = sorted(df["district"].unique().tolist())
-    return DistrictListResponse(districts=districts)
+    return DistrictListResponse(districts=_cached_districts())
 
 
 @app.get("/predict_latest")
@@ -99,7 +189,6 @@ def predict_latest(district: str = Query("Adilabad")):
     if result is None:
         result = svc.predict_district("Adilabad")
         if result is None:
-            from fastapi import HTTPException
             raise HTTPException(status_code=404, detail="District not found")
 
     features, reg_pred, lstm_pred, ensemble_pred = result
@@ -107,13 +196,10 @@ def predict_latest(district: str = Query("Adilabad")):
     predicted_cases_1w = max(0.0, ensemble_pred)
     risk_level = classify_risk_level(predicted_cases_1w)
 
-    root = get_project_root()
-    data_path = os.path.join(root, "data", "processed", "features_matrix.csv")
-    df = pd.read_csv(data_path)
+    df = svc._get_feature_matrix()
     df_d = df[df["district"] == district].copy()
     if df_d.empty:
         df_d = df.copy()
-    df_d["week_start"] = pd.to_datetime(df_d["week_start"])
     latest_row = df_d.sort_values("week_start").iloc[-1]
     history_week_start = latest_row["week_start"]
 
@@ -152,9 +238,7 @@ def predict_latest(district: str = Query("Adilabad")):
 
 @app.get("/model_accuracy", response_model=ModelAccuracyResponse)
 def model_accuracy(district: str | None = None):
-    root = get_project_root()
-    metrics_path = os.path.join(root, "data", "processed", "ensemble_results.csv")
-    df = pd.read_csv(metrics_path)
+    df = _ensemble_results_df()
 
     if district:
         df = df[df["district"] == district]
@@ -191,11 +275,8 @@ def model_accuracy(district: str | None = None):
 
 @app.get("/hotspots", response_model=HotspotsResponse)
 def get_hotspots(district: str = Query("Adilabad")):
-    root = get_project_root()
-    data_path = os.path.join(root, "data", "processed", "ensemble_results.csv")
-    df = pd.read_csv(data_path)
+    df = _ensemble_results_df()
 
-    df["week_start"] = pd.to_datetime(df["week_start"])
     latest_week = df["week_start"].max()
     recent_df = df[df["week_start"] >= (latest_week - pd.Timedelta(days=28))]
 
@@ -260,11 +341,8 @@ def get_hotspots(district: str = Query("Adilabad")):
 
 @app.get("/map_overview", response_model=MapOverviewResponse)
 def get_map_overview():
-    root = get_project_root()
-    data_path = os.path.join(root, "data", "processed", "ensemble_results.csv")
-    df = pd.read_csv(data_path)
+    df = _ensemble_results_df()
 
-    df["week_start"] = pd.to_datetime(df["week_start"])
     latest_week = df["week_start"].max()
     recent_df = df[df["week_start"] >= (latest_week - pd.Timedelta(days=14))]
 

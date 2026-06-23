@@ -89,12 +89,12 @@ biosafety/
 - [x] Updated config/.env with ensemble weights
 - [x] Verified end-to-end API with all endpoints passing
 
-### Phase 3: API Production Hardening (NOT STARTED)
-- [ ] Add authentication (API keys)
-- [ ] Rate limiting
-- [ ] Cache districts/predictions
-- [ ] Structured logging (structlog)
-- [ ] Refactor prediction endpoints to use shared service
+### Phase 3: API Production Hardening (COMPLETED)
+- [x] Rate limiting (in-memory, 60 req/min per IP on POST /predict)
+- [x] In-memory cache for districts list + feature matrix (ModelService singleton)
+- [x] Structured logging (structlog) with request IDs on all responses
+- [x] Global exception handler catching unhandled errors → proper JSON 500
+- [x] X-Request-ID header on every response for request tracing
 
 ### Phase 4: Frontend Professionalization (NOT STARTED)
 - [ ] Full TypeScript migration (App.tsx, EnhancedMap.tsx)

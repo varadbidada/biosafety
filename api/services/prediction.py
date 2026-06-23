@@ -154,20 +154,29 @@ class ModelService:
             ),
         )
 
+    _feature_matrix_df: pd.DataFrame | None = None
+
+    def _get_feature_matrix(self) -> pd.DataFrame:
+        if ModelService._feature_matrix_df is not None:
+            return ModelService._feature_matrix_df
+        root = _project_root
+        path = os.path.join(root, "data", "processed", "features_matrix.csv")
+        df = pd.read_csv(path)
+        df["week_start"] = pd.to_datetime(df["week_start"])
+        ModelService._feature_matrix_df = df
+        return df
+
     def predict_district(self, district: str) -> tuple[list[float], float, float, float] | None:
         """Get latest feature vector + historical sequence for a district.
         
         Returns (features, xgb_pred, lstm_pred, ensemble_pred) or None if district not found.
         """
-        root = _project_root
-        data_path = os.path.join(root, "data", "processed", "features_matrix.csv")
-        df = pd.read_csv(data_path)
+        df = self._get_feature_matrix()
 
         df_d = df[df["district"] == district].copy()
         if df_d.empty:
             return None
 
-        df_d["week_start"] = pd.to_datetime(df_d["week_start"])
         df_d = df_d.sort_values("week_start").reset_index(drop=True)
 
         # Get the last SEQ_LEN rows for LSTM sequence
