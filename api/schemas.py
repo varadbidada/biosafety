@@ -48,6 +48,15 @@ class PredictionResponse(BaseModel):
     predicted_cases_3w: Optional[float] = None
 
 
+class StateData(BaseModel):
+    state: str
+    districts: list[str]
+
+
+class StateListResponse(BaseModel):
+    states: list[StateData]
+
+
 class DistrictListResponse(BaseModel):
     districts: list[str]
 

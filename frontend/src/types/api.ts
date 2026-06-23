@@ -95,3 +95,12 @@ export interface CoordinateResponse {
   lat: number;
   lon: number;
 }
+
+export interface StateData {
+  state: string;
+  districts: string[];
+}
+
+export interface StateListResponse {
+  states: StateData[];
+}

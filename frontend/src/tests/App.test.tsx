@@ -9,14 +9,15 @@ beforeEach(() => {
 });
 
 describe("App", () => {
-  it("renders loading state initially", () => {
+  it("renders landing page with brand name", () => {
     render(<App />);
-    expect(screen.getByText(/DengueCast/i)).toBeInTheDocument();
-    expect(screen.getByText(/MODEL MATRIX ONLINE/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/DengueCast/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText(/AI-PREDICTIVE HEALTH INTELLIGENCE/i)).toBeInTheDocument();
   });
 
-  it("renders the brand header", () => {
+  it("renders landing page hero section", () => {
     render(<App />);
-    expect(screen.getByText(/Epidemiological Operations Center/i)).toBeInTheDocument();
+    expect(screen.getByText(/Launch Dashboard/i)).toBeInTheDocument();
+    expect(screen.getByText(/Prediction System/i)).toBeInTheDocument();
   });
 });

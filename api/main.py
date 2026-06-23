@@ -5,7 +5,6 @@ import time
 from collections import defaultdict
 from contextlib import asynccontextmanager
 
-import requests as http_requests
 import structlog
 import numpy as np
 import pandas as pd
@@ -21,6 +20,8 @@ from config import get_settings, get_project_root
 from api.schemas import (
     PredictionResponse,
     DistrictListResponse,
+    StateData,
+    StateListResponse,
     ModelAccuracyResponse,
     ModelMetrics,
     HotspotsResponse,
@@ -147,6 +148,34 @@ def _cached_districts() -> list[str]:
     return districts
 
 
+def _cached_states() -> list[dict]:
+    root = get_project_root()
+    data_path = os.path.join(root, "data", "processed", "features_matrix.csv")
+    df = pd.read_csv(data_path, usecols=["state", "district"]).dropna()
+    pairs = df.drop_duplicates()
+    state_map: dict[str, set[str]] = {}
+    for _, row in pairs.iterrows():
+        state_map.setdefault(str(row["state"]), set()).add(str(row["district"]))
+    result = []
+    for state in sorted(state_map):
+        result.append({
+            "state": state,
+            "districts": sorted(state_map[state]),
+        })
+    return result
+
+
+def _cached_coords() -> dict[str, tuple[float, float]]:
+    if _coords_cache:
+        return _coords_cache
+    root = get_project_root()
+    data_path = os.path.join(root, "data", "processed", "features_matrix.csv")
+    df = pd.read_csv(data_path, usecols=["district", "lat", "lon"]).dropna()
+    for _, row in df.iterrows():
+        _coords_cache[str(row["district"])] = (float(row["lat"]), float(row["lon"]))
+    return _coords_cache
+
+
 def _ensemble_results_df() -> pd.DataFrame:
     root = get_project_root()
     path = os.path.join(root, "data", "processed", "ensemble_results.csv")
@@ -170,24 +199,11 @@ def health_check():
 
 @app.get("/coordinates/{district}", response_model=CoordinateResponse)
 def get_coordinates(district: str):
-    if district in _coords_cache:
-        lat, lon = _coords_cache[district]
+    cache = _cached_coords()
+    if district in cache:
+        lat, lon = cache[district]
         return CoordinateResponse(district=district, lat=lat, lon=lon)
-    try:
-        r = http_requests.get(
-            "https://nominatim.openstreetmap.org/search",
-            params={"format": "json", "q": f"{district}, India"},
-            headers={"User-Agent": "DengueCast/1.0"},
-            timeout=5,
-        )
-        data = r.json()
-        if data:
-            lat = float(data[0]["lat"])
-            lon = float(data[0]["lon"])
-            _coords_cache[district] = (lat, lon)
-            return CoordinateResponse(district=district, lat=lat, lon=lon)
-    except Exception:
-        logger.warning("nominatim_failed", district=district)
+    logger.warning("coordinates_not_found", district=district)
     return CoordinateResponse(district=district, lat=20.5937, lon=78.9629)
 
 
@@ -205,6 +221,11 @@ def predict(data: PredictionInput, request: Request):
 @app.get("/districts", response_model=DistrictListResponse)
 def list_districts():
     return DistrictListResponse(districts=_cached_districts())
+
+
+@app.get("/states", response_model=StateListResponse)
+def list_states():
+    return StateListResponse(states=_cached_states())
 
 
 @app.get("/predict_latest")
