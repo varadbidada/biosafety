@@ -39,6 +39,9 @@ def main():
     parser.add_argument("--skip-xgb", action="store_true", help="Skip XGBoost training")
     parser.add_argument("--skip-lstm", action="store_true", help="Skip LSTM training")
     parser.add_argument("--skip-ensemble", action="store_true", help="Skip ensemble evaluation")
+    parser.add_argument("--bump", choices=["patch", "minor", "major"], default="patch",
+                        help="Version bump type (default: patch)")
+    parser.add_argument("--tag", action="store_true", help="Create git tag after training")
     parser.add_argument("--fast", action="store_true", help="Quick test run (fewer epochs/trees)")
     args = parser.parse_args()
 
@@ -71,9 +74,28 @@ def main():
             "Ensemble Evaluation",
         )
 
+    sys.path.insert(0, ROOT)
+    from scripts.model_version import bump_version, tag_version, read_version
+
+    new_ver = bump_version(args.bump)
+    print(f"Model version bumped to: {new_ver}")
+
+    if args.tag:
+        tag_version(new_ver)
+
+    if not args.skip_ensemble:
+        metrics_path = os.path.join(ROOT, "data/processed/eval_metrics.json")
+        if os.path.exists(metrics_path):
+            with open(metrics_path) as f:
+                metrics = json.load(f)
+            metrics["model_version"] = new_ver
+            with open(metrics_path, "w") as f:
+                json.dump(metrics, f, indent=2)
+
     elapsed = datetime.now() - start_time
     print(f"\n{'=' * 60}")
     print(f"Pipeline finished in {elapsed}")
+    print(f"Model version: {new_ver}")
     print(f"{'=' * 60}")
 
 

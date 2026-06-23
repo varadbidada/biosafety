@@ -36,7 +36,8 @@ biosafety/
 │   ├── xgb_clf.json       # XGBoost classifier (latest: Phase 2 retrain)
 │   ├── lstm_model_full.pt # LSTM model (latest: Phase 2 with SEQ_LEN=10)
 │   ├── lstm_scaler.pkl    # StandardScaler for LSTM
-│   └── feature_cols.json  # 17 feature column names
+│   ├── feature_cols.json  # 17 feature column names
+│   └── version.txt        # Current model version (0.2.0)
 ├── src/                # Training/evaluation code
 │   ├── train.py            # Pipeline orchestrator
 │   ├── features/make_features.py
@@ -48,6 +49,8 @@ biosafety/
 │   └── eval/evaluate.py
 ├── scripts/            # Utilities
 │   ├── generate_india_dataset.py
+│   ├── fetch_real_weather.py   # Open-Meteo weather integration
+│   ├── model_version.py        # Semver versioning + git tags
 │   ├── generate_us_temperature_heatmap.py
 │   └── generate_us_temperature_heatmap_advanced.py
 ├── data/processed/     # Datasets
@@ -114,10 +117,21 @@ biosafety/
 - [x] 6 frontend tests (ErrorBoundary: 4, App smoke: 2)
 - [x] Frontend production build: ~582 KB gzipped (no errors)
 
-### Phase 5: Data & Infrastructure (NOT STARTED)
-- [ ] GitHub Actions CI
-- [ ] Real data integration (Open-Meteo API)
-- [ ] Model versioning
+### Phase 5: Data & Infrastructure (COMPLETED)
+- [x] GitHub Actions CI workflow (.github/workflows/ci.yml)
+  - Backend: Python 3.11/3.12, ruff lint, pytest (9 tests)
+  - Frontend: Node 20, npm ci, ESLint, vitest (6 tests), vite build
+- [x] Real weather data integration (scripts/fetch_real_weather.py)
+  - Fetches Open-Meteo historical weather per district
+  - NDVI approximated from rainfall via logistic model
+  - Recalculates all lag features after weather replacement
+  - Nominatim coordinate cache (district_coords_cache.json)
+  - Rate-limited (1 req/sec Nominatim, 0.25s Open-Meteo)
+- [x] Model versioning (scripts/model_version.py + models/version.txt)
+  - Semver version file (models/version.txt)
+  - bump/read/tag utilities
+  - Git tag creation (models/vX.Y.Z)
+  - train.py auto-bumps version, embeds in eval_metrics.json
 
 ## Current Issues / Known Problems
 
