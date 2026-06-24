@@ -9,7 +9,7 @@ import {
 } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import type { TransformedHotspot } from "../types/api";
+import type { TransformedHotspot, StatePredictionData } from "../types/api";
 import axios from "axios";
 
 const { BaseLayer } = LayersControl;
@@ -108,16 +108,16 @@ function HeatmapLayer({ points }: HeatmapLayerProps) {
           );
 
           heatLayerRef.current = L.heatLayer(heatData, {
-            radius: 30,
-            blur: 40,
+            radius: 35,
+            blur: 35,
             maxZoom: 17,
             max: 1.0,
-            minOpacity: 0.4,
+            minOpacity: 0.55,
             gradient: {
               0.0: "#10b981",
-              0.4: "#facc15",
-              0.6: "#f59e0b",
-              0.8: "#ef4444",
+              0.3: "#eab308",
+              0.5: "#f59e0b",
+              0.7: "#ef4444",
               1.0: "#dc2626",
             },
           }).addTo(mapRef);
@@ -158,6 +158,72 @@ function MapUpdater({ center, zoom }: MapUpdaterProps) {
   return null;
 }
 
+/* ── State boundary choropleth layer ─────────────────────────── */
+
+interface StateBoundaryLayerProps {
+  statePredictions: StatePredictionData[];
+  onStateSelect: (state: string) => void;
+}
+
+function StateBoundaryLayer({ statePredictions, onStateSelect }: StateBoundaryLayerProps) {
+  const map = useMap();
+  const layerRef = useRef<L.GeoJSON | null>(null);
+
+  const intensityToColor = (intensity: number) => {
+    if (intensity < 0.25) return "#10b981";
+    if (intensity < 0.4) return "#eab308";
+    if (intensity < 0.6) return "#f59e0b";
+    if (intensity < 0.8) return "#ef4444";
+    return "#dc2626";
+  };
+
+  useEffect(() => {
+    axios.get(`${API_URL}/state_boundaries`)
+      .then((res) => {
+        if (layerRef.current) {
+          map.removeLayer(layerRef.current);
+        }
+
+        const predMap = new Map(statePredictions.map((s) => [s.state, s]));
+
+        layerRef.current = L.geoJSON(res.data as GeoJSON.FeatureCollection, {
+          style: (feature) => {
+            const name = feature?.properties?.name ?? "";
+            const p = predMap.get(name);
+            const intensity = p?.intensity ?? 0;
+            return {
+              fillColor: intensityToColor(intensity),
+              fillOpacity: 0.18,
+              color: "#ffffff",
+              weight: 2,
+            };
+          },
+          onEachFeature: (feature, layer) => {
+            const name = feature.properties?.name ?? "";
+            const p = predMap.get(name);
+            layer.on("click", () => {
+              onStateSelect(name);
+              map.fitBounds(layer.getBounds(), { padding: [40, 40], maxZoom: 9 });
+            });
+            layer.bindTooltip(
+              `<b>${name}</b><br/>Total cases: ${p ? Math.round(p.total_predicted_cases) : "N/A"}`,
+              { sticky: true },
+            );
+          },
+        }).addTo(map);
+      })
+      .catch(() => {});
+
+    return () => {
+      if (layerRef.current && map.hasLayer(layerRef.current)) {
+        map.removeLayer(layerRef.current);
+      }
+    };
+  }, [statePredictions, map, onStateSelect]);
+
+  return null;
+}
+
 /* ── Main component ──────────────────────────────────────────── */
 
 interface EnhancedMapProps {
@@ -175,6 +241,8 @@ interface EnhancedMapProps {
   } | null;
   selectedDistrict: string;
   getRiskColor: (level?: string) => string;
+  statePredictions: StatePredictionData[];
+  onStateSelect: (state: string) => void;
 }
 
 const EnhancedMap: FC<EnhancedMapProps> = ({
@@ -184,8 +252,10 @@ const EnhancedMap: FC<EnhancedMapProps> = ({
   prediction,
   selectedDistrict,
   getRiskColor,
+  statePredictions,
+  onStateSelect,
 }) => {
-  const [mapLayer, setMapLayer] = useState<string>("satellite");
+  const [mapLayer, setMapLayer] = useState<string>("dark");
   const [showHeatmap, setShowHeatmap] = useState<boolean>(false);
   const [show3D, setShow3D] = useState<boolean>(false);
   const [nationHeat, setNationHeat] = useState<NationHeatPoint[]>([]);
@@ -212,20 +282,20 @@ const EnhancedMap: FC<EnhancedMapProps> = ({
     <div className="enhanced-map-container">
       <div className="map-controls-panel">
         <div className="map-layer-selector">
-          {(["satellite", "hybrid", "terrain", "dark"] as const).map(
+          {(["dark", "hybrid", "terrain", "satellite"] as const).map(
             (layer) => (
               <button
                 key={layer}
                 className={`map-btn ${mapLayer === layer ? "active" : ""}`}
                 onClick={() => setMapLayer(layer)}
               >
-                {layer === "satellite"
-                  ? "🛰️ Satellite"
+                {layer === "dark"
+                  ? "🌙 Dark"
                   : layer === "hybrid"
                     ? "🗺️ Hybrid"
                     : layer === "terrain"
                       ? "⛰️ Terrain"
-                      : "🌙 Dark"}
+                      : "🛰️ Satellite"}
               </button>
             ),
           )}
@@ -304,6 +374,8 @@ const EnhancedMap: FC<EnhancedMapProps> = ({
           </LayersControl>
 
           <MapUpdater center={center} zoom={zoom} />
+
+          <StateBoundaryLayer statePredictions={statePredictions} onStateSelect={onStateSelect} />
 
           {showHeatmap && <HeatmapLayer points={heatmapPoints} />}
 
@@ -436,6 +508,21 @@ const EnhancedMap: FC<EnhancedMapProps> = ({
             </CircleMarker>
           ))}
         </MapContainer>
+
+        {/* Legend */}
+        <div className="map-legend">
+          <div className="map-legend-title">Dengue Risk Index</div>
+          <div className="map-legend-gradient" />
+          <div className="map-legend-labels">
+            <span>Low</span>
+            <span>Moderate</span>
+            <span>High</span>
+            <span>Very High</span>
+          </div>
+          <div className="map-legend-note">
+            0 &mdash; 25 &mdash; 50 &mdash; 75 &mdash; 100+ predicted cases (District heatmap &bull; State choropleth)
+          </div>
+        </div>
       </div>
     </div>
   );

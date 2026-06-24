@@ -106,3 +106,18 @@ export interface StateData {
 export interface StateListResponse {
   states: StateData[];
 }
+
+export interface StatePredictionData {
+  state: string;
+  total_predicted_cases: number;
+  avg_predicted_cases: number;
+  max_predicted_cases: number;
+  district_count: number;
+  risk_level: "low" | "medium" | "high";
+  intensity: number;
+}
+
+export interface StatePredictionsResponse {
+  states: StatePredictionData[];
+  latest_week: string;
+}

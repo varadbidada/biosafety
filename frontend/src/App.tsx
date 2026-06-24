@@ -42,6 +42,7 @@ import type {
   TransformedHotspot,
   CoordinateResponse,
   StateData,
+  StatePredictionData,
 } from "./types/api";
 
 ChartJS.register(
@@ -137,6 +138,7 @@ const App: FC = () => {
   const [coordsCache, setCoordsCache] = useState<Record<string, [number, number]>>({});
   const [mapZoom, setMapZoom] = useState(5);
   const [hotspots, setHotspots] = useState<TransformedHotspot[]>([]);
+  const [statePredictions, setStatePredictions] = useState<StatePredictionData[]>([]);
 
   // Derived: filtered districts for current state + search
   const currentDistricts = useMemo(() => {
@@ -160,6 +162,24 @@ const App: FC = () => {
       }
     } catch {
       setError("Connection interrupted. Please verify backend state.");
+    }
+  };
+
+  const fetchStatePredictions = async () => {
+    try {
+      const res = await axios.get<{ states: StatePredictionData[] }>(`${API_URL}/state_predictions`);
+      setStatePredictions(res.data.states);
+    } catch {
+      // non-critical
+    }
+  };
+
+  const handleStateSelect = (state: string) => {
+    setSelectedState(state);
+    setDistrictSearch("");
+    const s = states.find((s) => s.state === state);
+    if (s && s.districts.length > 0) {
+      setSelectedDistrict(s.districts[0]);
     }
   };
 
@@ -220,6 +240,7 @@ const App: FC = () => {
   useEffect(() => {
     if (view === "dashboard") {
       fetchStates();
+      fetchStatePredictions();
     }
   }, [view]);
 
@@ -427,6 +448,34 @@ const App: FC = () => {
               </div>
             </div>
           )}
+
+          {/* State-level summary */}
+          {statePredictions.length > 0 && selectedState && (
+            <div className="sidebar-state-summary">
+              <div className="sidebar-metric-box">
+                <div className="metric-header">
+                  <MapPin className="metric-icon text-blue" />
+                  <span>STATE OVERVIEW</span>
+                </div>
+                {((): StatePredictionData | undefined => {
+                  const sp = statePredictions.find((s) => s.state === selectedState);
+                  if (!sp) return null;
+                  const spColor = sp.risk_level === "low" ? "#10b981" : sp.risk_level === "medium" ? "#f59e0b" : "#f43f5e";
+                  return (
+                    <>
+                      <div className="metric-val" style={{ color: spColor }}>
+                        <AnimatedCounter value={Math.round(sp.total_predicted_cases)} />
+                        <span style={{ fontSize: ".65rem", opacity: 0.6, marginLeft: 4 }}>cases</span>
+                      </div>
+                      <div className="metric-footer">
+                        {sp.district_count} districts · avg {sp.avg_predicted_cases.toFixed(0)} per district
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
+            </div>
+          )}
         </aside>
 
         {/* ── Main Panel ── */}
@@ -471,6 +520,8 @@ const App: FC = () => {
                     prediction={prediction}
                     selectedDistrict={selectedDistrict}
                     getRiskColor={getRiskColor}
+                    statePredictions={statePredictions}
+                    onStateSelect={handleStateSelect}
                   />
                 </ErrorBoundary>
               </div>

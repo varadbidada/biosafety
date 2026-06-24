@@ -124,6 +124,21 @@ class CoordinateResponse(BaseModel):
     lon: float
 
 
+class StatePredictionData(BaseModel):
+    state: str
+    total_predicted_cases: float
+    avg_predicted_cases: float
+    max_predicted_cases: float
+    district_count: int
+    risk_level: str
+    intensity: float
+
+
+class StatePredictionsResponse(BaseModel):
+    states: list[StatePredictionData]
+    latest_week: str
+
+
 class HeatmapDistrict(BaseModel):
     district: str
     lat: float

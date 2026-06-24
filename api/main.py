@@ -3,6 +3,7 @@ import sys
 import uuid
 import time
 import math
+import json
 from collections import defaultdict
 from contextlib import asynccontextmanager
 
@@ -34,6 +35,8 @@ from api.schemas import (
     PredictionInput,
     HeatmapResponse,
     HeatmapDistrict,
+    StatePredictionData,
+    StatePredictionsResponse,
 )
 from api.services.prediction import get_model_service
 
@@ -585,5 +588,72 @@ def get_heatmap():
     return HeatmapResponse(
         districts=districts_data,
         total_districts=len(districts_data),
+        latest_week=str(latest_week.date()),
+    )
+
+
+_STATE_BOUNDARIES_CACHE: dict | None = None
+
+
+def _cached_state_boundaries() -> dict:
+    global _STATE_BOUNDARIES_CACHE
+    if _STATE_BOUNDARIES_CACHE is not None:
+        return _STATE_BOUNDARIES_CACHE
+    path = os.path.join(get_project_root(), "data", "processed", "india_states.geojson")
+    if os.path.exists(path):
+        with open(path) as f:
+            _STATE_BOUNDARIES_CACHE = json.load(f)
+    else:
+        _STATE_BOUNDARIES_CACHE = {"type": "FeatureCollection", "features": []}
+    return _STATE_BOUNDARIES_CACHE
+
+
+@app.get("/state_boundaries")
+def get_state_boundaries():
+    return _cached_state_boundaries()
+
+
+@app.get("/state_predictions", response_model=StatePredictionsResponse)
+def get_state_predictions():
+    df = _ensemble_results_df()
+    states_data = _cached_states()
+
+    latest_week = df["week_start"].max()
+    recent_df = df[df["week_start"] >= (latest_week - pd.Timedelta(days=14))]
+
+    district_avg = (
+        recent_df.groupby("district")["ensemble_pred"]
+        .mean()
+        .reset_index()
+    )
+
+    state_results = []
+    for s in states_data:
+        state_name = s["state"]
+        districts_in_state = s["districts"]
+        state_districts = district_avg[district_avg["district"].isin(districts_in_state)]
+        if state_districts.empty:
+            continue
+        total = float(state_districts["ensemble_pred"].sum())
+        avg = float(state_districts["ensemble_pred"].mean())
+        mx = float(state_districts["ensemble_pred"].max())
+        cnt = len(state_districts)
+        risk = classify_risk_level(avg)
+        intensity = min(1.0, avg / 50.0)
+        state_results.append(
+            StatePredictionData(
+                state=state_name,
+                total_predicted_cases=round(total, 1),
+                avg_predicted_cases=round(avg, 1),
+                max_predicted_cases=round(mx, 1),
+                district_count=cnt,
+                risk_level=risk,
+                intensity=round(intensity, 3),
+            )
+        )
+
+    state_results.sort(key=lambda x: x.total_predicted_cases, reverse=True)
+    return StatePredictionsResponse(
+        states=state_results,
         latest_week=str(latest_week.date()),
     )
