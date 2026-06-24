@@ -10,8 +10,10 @@ import {
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import type { TransformedHotspot } from "../types/api";
+import axios from "axios";
 
 const { BaseLayer } = LayersControl;
+const API_URL = "/api";
 
 /* ── Sub-components ──────────────────────────────────────────── */
 
@@ -68,12 +70,21 @@ function PulsingMarker({ center, radius, color }: PulsingMarkerProps) {
   return null;
 }
 
-/* ── Heatmap overlay ─────────────────────────────────────────── */
+/* ── Heatmap overlay (nationwide) ───────────────────────────── */
 
 interface HeatPoint {
   lat: number;
   lng: number;
   intensity: number;
+}
+
+interface NationHeatPoint {
+  district: string;
+  lat: number;
+  lon: number;
+  risk_level: string;
+  intensity: number;
+  avg_cases: number;
 }
 
 interface HeatmapLayerProps {
@@ -177,12 +188,25 @@ const EnhancedMap: FC<EnhancedMapProps> = ({
   const [mapLayer, setMapLayer] = useState<string>("satellite");
   const [showHeatmap, setShowHeatmap] = useState<boolean>(false);
   const [show3D, setShow3D] = useState<boolean>(false);
+  const [nationHeat, setNationHeat] = useState<NationHeatPoint[]>([]);
 
-  const heatmapPoints: HeatPoint[] = hotspots.map((h) => ({
-    lat: h.coords[0],
-    lng: h.coords[1],
-    intensity: h.intensity ?? h.cases / 50,
-  }));
+  useEffect(() => {
+    axios.get<{ districts: NationHeatPoint[] }>(`${API_URL}/heatmap`)
+      .then((res) => {
+        if (res.data && res.data.districts) {
+          setNationHeat(res.data.districts);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const heatmapPoints: HeatPoint[] = showHeatmap && nationHeat.length > 0
+    ? nationHeat.map((d) => ({
+        lat: d.lat,
+        lng: d.lon,
+        intensity: d.intensity ?? 0.5,
+      }))
+    : [];
 
   return (
     <div className="enhanced-map-container">

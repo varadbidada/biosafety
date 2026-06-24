@@ -120,3 +120,18 @@ class CoordinateResponse(BaseModel):
     district: str
     lat: float
     lon: float
+
+
+class HeatmapDistrict(BaseModel):
+    district: str
+    lat: float
+    lon: float
+    risk_level: str
+    intensity: float
+    avg_cases: float
+
+
+class HeatmapResponse(BaseModel):
+    districts: list[HeatmapDistrict]
+    total_districts: int
+    latest_week: str
