@@ -10,6 +10,8 @@ export interface HotspotData {
   id: number;
   name: string;
   district_ref: string;
+  lat: number;
+  lon: number;
   offset_lat: number;
   offset_lon: number;
   type: "cases" | "breeding" | "hospital";

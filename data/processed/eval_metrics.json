@@ -1,25 +1,25 @@
 {
-  "ensemble_weight_xgb": 1.0,
-  "ensemble_weight_lstm": 0.0,
+  "ensemble_weight_xgb": 0.4,
+  "ensemble_weight_lstm": 0.6,
   "xgb": {
-    "n_samples": 307118,
-    "mae": 3.41,
-    "rmse": 4.25,
-    "mape": 18.71,
-    "r2": 0.0
+    "n_samples": 304762,
+    "mae": 1.75,
+    "rmse": 2.25,
+    "mape": 7.66,
+    "r2": 0.935
   },
   "lstm": {
-    "n_samples": 301817,
-    "mae": 3.41,
-    "rmse": 4.25,
-    "mape": 18.65,
-    "r2": -0.0
+    "n_samples": 299461,
+    "mae": 1.7,
+    "rmse": 2.21,
+    "mape": 7.46,
+    "r2": 0.937
   },
   "ensemble": {
-    "n_samples": 301817,
-    "mae": 3.41,
-    "rmse": 4.25,
-    "mape": 18.72,
-    "r2": 0.0
+    "n_samples": 299461,
+    "mae": 1.69,
+    "rmse": 2.18,
+    "mape": 7.4,
+    "r2": 0.939
   }
 }

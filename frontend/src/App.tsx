@@ -199,7 +199,7 @@ const App: FC = () => {
         (h: HotspotData) => ({
           id: h.id,
           name: h.name,
-          coords: [districtCoords[0] + h.offset_lat, districtCoords[1] + h.offset_lon] as [number, number],
+          coords: [h.lat, h.lon] as [number, number],
           type: h.type,
           cases: h.avg_cases,
           maxCases: h.max_cases,

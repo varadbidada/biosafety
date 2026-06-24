@@ -78,6 +78,8 @@ class HotspotData(BaseModel):
     id: int
     name: str
     district_ref: str
+    lat: float
+    lon: float
     offset_lat: float
     offset_lon: float
     type: str

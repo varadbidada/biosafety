@@ -45,6 +45,13 @@ cd api && python -m uvicorn api.main:app --reload  # dev server
 ```
 
 ## Recent changes (this session)
+- IEEE-level research paper documentation: `docs/IEEE_PAPER_SUMMARY.md` (Abstract, Introduction, System Architecture, Data, Methodology, Evaluation, Deployment, Related Work, Conclusion, 15 references)
+- Curated city-center coordinates for 70+ major districts as GeoJSON centroid override
+- `GET /heatmap` endpoint returning all 589 districts with coordinates, risk level, and intensity
+- Nationwide heatmap overlay (leaflet.heat) replacing local-hotspot-only heatmap
+- `HeatmapDistrict` / `HeatmapResponse` schemas
+- Fixed engine loop key mismatch (`xgb` → `xgb_reg`)
+- Fixed district selector double-click (replaced `<select size=N>` with clickable `<div>` list)
 - Landing page: hero with gradient text, stats row, feature cards, CTA button, brand header, fade-in animation
 - Skeleton components: Map, Metric, Chart shimmer loaders for dashboard loading state
 - Tooltip component: popover info box for model engine descriptions in sidebar

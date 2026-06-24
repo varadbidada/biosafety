@@ -2,6 +2,7 @@ import os
 import sys
 import uuid
 import time
+import math
 from collections import defaultdict
 from contextlib import asynccontextmanager
 
@@ -415,6 +416,16 @@ def model_accuracy(district: str | None = None):
 @app.get("/hotspots", response_model=HotspotsResponse)
 def get_hotspots(district: str = Query("Adilabad")):
     df = _ensemble_results_df()
+    coords = _cached_coords()
+
+    if district not in coords:
+        district = "Adilabad"
+    lat0, lon0 = coords[district]
+
+    nearest = sorted(
+        [(d, lat, lon) for d, (lat, lon) in coords.items() if d != district],
+        key=lambda x: _haversine(lat0, lon0, x[1], x[2]),
+    )[:6]
 
     latest_week = df["week_start"].max()
     recent_df = df[df["week_start"] >= (latest_week - pd.Timedelta(days=28))]
@@ -431,40 +442,38 @@ def get_hotspots(district: str = Query("Adilabad")):
         selected_data = district_stats.iloc[0:1]
         district = selected_data["district"].values[0]
 
-    district_stats["similarity"] = abs(
-        district_stats["avg_pred"] - selected_data["avg_pred"].values[0]
-    )
-    neighbors = district_stats[
-        district_stats["district"] != district
-    ].nsmallest(6, "similarity")
+    RADIUS_KM = 4.0
 
-    offsets = [
-        {"name": "North Zone", "dLat": 0.015, "dLon": 0.008, "type": "cases"},
-        {"name": "South Zone", "dLat": -0.012, "dLon": -0.010, "type": "cases"},
-        {"name": "East Zone", "dLat": 0.008, "dLon": 0.018, "type": "breeding"},
-        {"name": "West Zone", "dLat": -0.006, "dLon": -0.015, "type": "breeding"},
-        {"name": "Central Hospital Area", "dLat": 0.003, "dLon": 0.005, "type": "hospital"},
-        {"name": "Industrial Zone", "dLat": 0.020, "dLon": -0.012, "type": "cases"},
+    zone_labels = [
+        "North Zone", "South Zone", "East Zone", "West Zone",
+        "Central Hospital Area", "Industrial Zone",
     ]
+    zone_types = ["cases", "cases", "breeding", "breeding", "hospital", "cases"]
 
     hotspots = []
-    for idx, (_, neighbor) in enumerate(neighbors.iterrows()):
-        if idx >= len(offsets):
-            break
-        offset = offsets[idx]
-        cases = max(1, int(neighbor["avg_pred"]))
-        max_cases = max(1, int(neighbor["max_pred"]))
+    for idx, (name, lat, lon) in enumerate(nearest):
+        row = district_stats[district_stats["district"] == name]
+        if row.empty:
+            continue
+        r = row.iloc[0]
+        cases = max(1, int(r["avg_pred"]))
+        max_cases = max(1, int(r["max_pred"]))
+        bearing = _bearing(lat0, lon0, lat, lon)
+        hlats, hlons = _destination(lat0, lon0, bearing, RADIUS_KM)
+        zi = idx % len(zone_labels)
         hotspots.append(
             HotspotData(
                 id=idx,
-                name=f"{district} - {offset['name']}",
-                district_ref=neighbor["district"],
-                offset_lat=offset["dLat"],
-                offset_lon=offset["dLon"],
-                type=offset["type"],
+                name=f"{district} - {zone_labels[zi]}",
+                district_ref=name,
+                lat=hlats,
+                lon=hlons,
+                offset_lat=hlats - lat0,
+                offset_lon=hlons - lon0,
+                type=zone_types[zi],
                 avg_cases=cases,
                 max_cases=max_cases,
-                std_cases=float(neighbor["std_pred"]),
+                std_cases=float(r["std_pred"]),
                 intensity=min(1.0, cases / 50.0),
             )
         )
@@ -476,6 +485,32 @@ def get_hotspots(district: str = Query("Adilabad")):
         hotspots=hotspots,
         total_hotspots=len(hotspots),
     )
+
+
+def _haversine(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    R = 6371.0
+    dlat = math.radians(lat2 - lat1)
+    dlon = math.radians(lon2 - lon1)
+    a = math.sin(dlat / 2) ** 2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2) ** 2
+    return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+
+def _bearing(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    dlon = math.radians(lon2 - lon1)
+    x = math.sin(dlon) * math.cos(math.radians(lat2))
+    y = math.cos(math.radians(lat1)) * math.sin(math.radians(lat2)) - math.sin(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.cos(dlon)
+    return math.degrees(math.atan2(x, y))
+
+
+def _destination(lat: float, lon: float, bearing_deg: float, dist_km: float) -> tuple[float, float]:
+    R = 6371.0
+    brng = math.radians(bearing_deg)
+    d = dist_km / R
+    lat1 = math.radians(lat)
+    lon1 = math.radians(lon)
+    lat2 = math.asin(math.sin(lat1) * math.cos(d) + math.cos(lat1) * math.sin(d) * math.cos(brng))
+    lon2 = lon1 + math.atan2(math.sin(brng) * math.sin(d) * math.cos(lat1), math.cos(d) - math.sin(lat1) * math.sin(lat2))
+    return math.degrees(lat2), math.degrees(lon2)
 
 
 @app.get("/map_overview", response_model=MapOverviewResponse)
