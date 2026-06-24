@@ -29,6 +29,7 @@ import {
   Search,
   Info,
   Menu,
+  Home,
   X,
 } from "lucide-react";
 import EnhancedMap from "./components/EnhancedMap";
@@ -346,6 +347,14 @@ const App: FC = () => {
             <div className="system-status">
               <span className="dot pulse-dot" />
               <span>MODEL MATRIX ONLINE</span>
+              <button
+                className="brand-home-btn"
+                onClick={() => setView("landing")}
+                aria-label="Home"
+                title="Back to Home"
+              >
+                <Home size={14} />
+              </button>
             </div>
           </div>
 
@@ -354,7 +363,6 @@ const App: FC = () => {
 
             {/* State dropdown */}
             <div className="select-container">
-              <MapPin className="select-icon" />
               <select
                 value={selectedState}
                 onChange={(e) => {
@@ -367,6 +375,7 @@ const App: FC = () => {
                 }}
                 disabled={states.length === 0}
                 className="premium-select"
+                style={{ paddingLeft: "1rem" }}
               >
                 {states.map((s) => (
                   <option key={s.state} value={s.state}>{s.state}</option>
@@ -388,7 +397,6 @@ const App: FC = () => {
 
             {/* District list */}
             <div className="select-container">
-              <MapPin className="select-icon" />
               <div className="district-list-box">
                 {currentDistricts.length === 0 ? (
                   <div className="district-list-empty">No districts found</div>
@@ -405,77 +413,78 @@ const App: FC = () => {
                 )}
               </div>
             </div>
-          </div>
 
-          {prediction && (
-            <div className="sidebar-metrics">
-              <div className="sidebar-metric-box">
-                <div className="metric-header">
-                  {getRiskIcon(prediction.risk_level)}
-                  <span>HAZARD INDEX</span>
+            {/* ── District-level predictions ── */}
+            {prediction && (
+              <div className="sidebar-metrics">
+                <div className="sidebar-metric-box">
+                  <div className="metric-header">
+                    {getRiskIcon(prediction.risk_level)}
+                    <span>HAZARD INDEX</span>
+                  </div>
+                  <div className="metric-val" style={{ color: getRiskColor(prediction.risk_level) }}>
+                    {prediction.risk_level.toUpperCase()}
+                  </div>
+                  <div className="metric-footer">Based on LSTM & XGBoost predictions</div>
                 </div>
-                <div className="metric-val" style={{ color: getRiskColor(prediction.risk_level) }}>
-                  {prediction.risk_level.toUpperCase()}
+
+                <div className="sidebar-metric-box">
+                  <div className="metric-header">
+                    <Thermometer className="metric-icon text-orange" />
+                    <span>ENVIRONMENTAL HYGROMETRY</span>
+                  </div>
+                  <div className="climate-progress-list">
+                    {(["temperature", "rainfall", "ndvi"] as const).map((k) => {
+                      const labels = { temperature: "Temp", rainfall: "Rainfall", ndvi: "NDVI Index" };
+                      const units = { temperature: "°C", rainfall: "mm", ndvi: "" };
+                      const maxVals = { temperature: 45, rainfall: 300, ndvi: 0.8 };
+                      const colors = { temperature: "bg-orange", rainfall: "bg-blue", ndvi: "bg-emerald" };
+                      const val = prediction.climate?.[k] ?? 0;
+                      return (
+                        <div key={k} className="progress-item">
+                          <div className="prog-labels">
+                            <span>{labels[k]}</span>
+                            <span>{k === "ndvi" ? val.toFixed(2) : k === "temperature" ? val.toFixed(1) : val.toFixed(0)}{units[k]}</span>
+                          </div>
+                          <div className="prog-track">
+                            <div className={`prog-bar ${colors[k]}`} style={{ width: `${Math.min(100, (val / maxVals[k]) * 100)}%` }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-                <div className="metric-footer">Based on LSTM & XGBoost predictions</div>
               </div>
+            )}
 
-              <div className="sidebar-metric-box">
-                <div className="metric-header">
-                  <Thermometer className="metric-icon text-orange" />
-                  <span>ENVIRONMENTAL HYGROMETRY</span>
-                </div>
-                <div className="climate-progress-list">
-                  {(["temperature", "rainfall", "ndvi"] as const).map((k) => {
-                    const labels = { temperature: "Temp", rainfall: "Rainfall", ndvi: "NDVI Index" };
-                    const units = { temperature: "°C", rainfall: "mm", ndvi: "" };
-                    const maxVals = { temperature: 45, rainfall: 300, ndvi: 0.8 };
-                    const colors = { temperature: "bg-orange", rainfall: "bg-blue", ndvi: "bg-emerald" };
-                    const val = prediction.climate?.[k] ?? 0;
+            {/* State-level summary */}
+            {statePredictions.length > 0 && selectedState && (
+              <div className="sidebar-state-summary">
+                <div className="sidebar-metric-box">
+                  <div className="metric-header">
+                    <MapPin className="metric-icon text-blue" />
+                    <span>STATE OVERVIEW</span>
+                  </div>
+                  {((): StatePredictionData | undefined => {
+                    const sp = statePredictions.find((s) => s.state === selectedState);
+                    if (!sp) return null;
+                    const spColor = sp.risk_level === "low" ? "#10b981" : sp.risk_level === "medium" ? "#f59e0b" : "#f43f5e";
                     return (
-                      <div key={k} className="progress-item">
-                        <div className="prog-labels">
-                          <span>{labels[k]}</span>
-                          <span>{k === "ndvi" ? val.toFixed(2) : k === "temperature" ? val.toFixed(1) : val.toFixed(0)}{units[k]}</span>
+                      <>
+                        <div className="metric-val" style={{ color: spColor }}>
+                          <AnimatedCounter value={Math.round(sp.total_predicted_cases)} />
+                          <span style={{ fontSize: ".65rem", opacity: 0.6, marginLeft: 4 }}>cases</span>
                         </div>
-                        <div className="prog-track">
-                          <div className={`prog-bar ${colors[k]}`} style={{ width: `${Math.min(100, (val / maxVals[k]) * 100)}%` }} />
+                        <div className="metric-footer">
+                          {sp.district_count} districts · avg {sp.avg_predicted_cases.toFixed(0)} per district
                         </div>
-                      </div>
+                      </>
                     );
-                  })}
+                  })()}
                 </div>
               </div>
-            </div>
-          )}
-
-          {/* State-level summary */}
-          {statePredictions.length > 0 && selectedState && (
-            <div className="sidebar-state-summary">
-              <div className="sidebar-metric-box">
-                <div className="metric-header">
-                  <MapPin className="metric-icon text-blue" />
-                  <span>STATE OVERVIEW</span>
-                </div>
-                {((): StatePredictionData | undefined => {
-                  const sp = statePredictions.find((s) => s.state === selectedState);
-                  if (!sp) return null;
-                  const spColor = sp.risk_level === "low" ? "#10b981" : sp.risk_level === "medium" ? "#f59e0b" : "#f43f5e";
-                  return (
-                    <>
-                      <div className="metric-val" style={{ color: spColor }}>
-                        <AnimatedCounter value={Math.round(sp.total_predicted_cases)} />
-                        <span style={{ fontSize: ".65rem", opacity: 0.6, marginLeft: 4 }}>cases</span>
-                      </div>
-                      <div className="metric-footer">
-                        {sp.district_count} districts · avg {sp.avg_predicted_cases.toFixed(0)} per district
-                      </div>
-                    </>
-                  );
-                })()}
-              </div>
-            </div>
-          )}
+            )}
+          </div>
         </aside>
 
         {/* ── Main Panel ── */}

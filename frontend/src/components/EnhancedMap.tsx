@@ -379,67 +379,6 @@ const EnhancedMap: FC<EnhancedMapProps> = ({
 
           {showHeatmap && <HeatmapLayer points={heatmapPoints} />}
 
-          {prediction && (
-            <>
-              <PulsingMarker
-                center={center}
-                radius={15}
-                color={getRiskColor(prediction.risk_level)}
-              />
-
-              <CircleMarker
-                center={center}
-                radius={show3D ? 28 : 22}
-                pathOptions={{
-                  color: getRiskColor(prediction.risk_level),
-                  fillColor: getRiskColor(prediction.risk_level),
-                  fillOpacity: show3D ? 0.25 : 0.15,
-                  weight: 2,
-                  dashArray: "4, 4" as unknown as [number, number],
-                }}
-              >
-                <Popup className="premium-popup">
-                  <div className="pop-desc">
-                    <h4>{selectedDistrict.toUpperCase()} CENTER</h4>
-                    <div className="pop-divider"></div>
-                    <p>
-                      Weekly Forecast:{" "}
-                      <strong>
-                        {Math.round(prediction.predicted_cases_1w)} Cases
-                      </strong>
-                    </p>
-                    <p>
-                      Risk Level:{" "}
-                      <span
-                        style={{ color: getRiskColor(prediction.risk_level) }}
-                      >
-                        {prediction.risk_level.toUpperCase()}
-                      </span>
-                    </p>
-                    <p>
-                      Temperature:{" "}
-                      <strong>
-                        {prediction.climate?.temperature.toFixed(1) ?? "N/A"}°C
-                      </strong>
-                    </p>
-                    <p>
-                      Rainfall:{" "}
-                      <strong>
-                        {prediction.climate?.rainfall.toFixed(0) ?? "N/A"}mm
-                      </strong>
-                    </p>
-                    <p>
-                      NDVI:{" "}
-                      <strong>
-                        {prediction.climate?.ndvi.toFixed(2) ?? "N/A"}
-                      </strong>
-                    </p>
-                  </div>
-                </Popup>
-              </CircleMarker>
-            </>
-          )}
-
           {hotspots.map((hotspot) => (
             <CircleMarker
               key={hotspot.id}

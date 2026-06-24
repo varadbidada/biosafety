@@ -9,7 +9,6 @@ interface StatItem {
 const stats: StatItem[] = [
   { value: 589, label: "Districts", suffix: "+" },
   { value: 35, label: "States / UTs" },
-  { value: 10, label: "Years of Data", suffix: "+" },
   { value: 4, label: "RMSE Score", suffix: ".2" },
 ];
 
