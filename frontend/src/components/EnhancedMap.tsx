@@ -158,6 +158,21 @@ function MapUpdater({ center, zoom }: MapUpdaterProps) {
   return null;
 }
 
+/* ── India bounds fitter (initial overview) ─────────────────── */
+
+function IndiaBoundsFitter() {
+  const map = useMap();
+
+  useEffect(() => {
+    map.fitBounds(
+      [[6.5, 68.0], [37.0, 97.5]],
+      { padding: [30, 30], animate: false },
+    );
+  }, [map]);
+
+  return null;
+}
+
 /* ── State boundary choropleth layer ─────────────────────────── */
 
 interface StateBoundaryLayerProps {
@@ -373,7 +388,9 @@ const EnhancedMap: FC<EnhancedMapProps> = ({
             )}
           </LayersControl>
 
-          <MapUpdater center={center} zoom={zoom} />
+          <IndiaBoundsFitter />
+
+          {selectedDistrict && <MapUpdater center={center} zoom={zoom} />}
 
           <StateBoundaryLayer statePredictions={statePredictions} onStateSelect={onStateSelect} />
 

@@ -153,14 +153,7 @@ const App: FC = () => {
   const fetchStates = async () => {
     try {
       const res = await axios.get<{ states: StateData[] }>(`${API_URL}/states`);
-      const list = res.data.states;
-      setStates(list);
-      if (list.length > 0) {
-        setSelectedState(list[0].state);
-        if (list[0].districts.length > 0) {
-          setSelectedDistrict(list[0].districts[0]);
-        }
-      }
+      setStates(res.data.states);
     } catch {
       setError("Connection interrupted. Please verify backend state.");
     }
@@ -377,6 +370,7 @@ const App: FC = () => {
                 className="premium-select"
                 style={{ paddingLeft: "1rem" }}
               >
+                <option value="" disabled>— Select a State —</option>
                 {states.map((s) => (
                   <option key={s.state} value={s.state}>{s.state}</option>
                 ))}
@@ -399,7 +393,9 @@ const App: FC = () => {
             <div className="select-container">
               <div className="district-list-box">
                 {currentDistricts.length === 0 ? (
-                  <div className="district-list-empty">No districts found</div>
+                  <div className="district-list-empty">
+                    {selectedState ? "No districts found" : "Select a state first"}
+                  </div>
                 ) : (
                   currentDistricts.map((d) => (
                     <div
@@ -504,138 +500,138 @@ const App: FC = () => {
 
           {error && <div className="modern-error-banner">{error}</div>}
 
-          {loading ? (
-            <div className="dashboard-grid-layout dashboard-loading">
-              <SkeletonMap />
-              <SkeletonMetric />
-              <SkeletonChart />
+          <div className="dashboard-grid-layout">
+            {/* Map - always visible */}
+            <div className="card map-card-large">
+              <div className="card-header-modern">
+                <div className="card-title">
+                  <Compass className="card-icon" />
+                  <h3>Advanced Geospatial Analysis & Risk Mapping</h3>
+                </div>
+                <div className="card-badge">MULTI-LAYER SATELLITE</div>
+              </div>
+              <ErrorBoundary>
+                <EnhancedMap
+                  center={districtCoords}
+                  zoom={mapZoom}
+                  hotspots={hotspots}
+                  prediction={prediction}
+                  selectedDistrict={selectedDistrict}
+                  getRiskColor={getRiskColor}
+                  statePredictions={statePredictions}
+                  onStateSelect={handleStateSelect}
+                />
+              </ErrorBoundary>
             </div>
-          ) : prediction ? (
-            <div className="dashboard-grid-layout">
-              {/* Map */}
-              <div className="card map-card-large">
-                <div className="card-header-modern">
-                  <div className="card-title">
-                    <Compass className="card-icon" />
-                    <h3>Advanced Geospatial Analysis & Risk Mapping</h3>
-                  </div>
-                  <div className="card-badge">MULTI-LAYER SATELLITE</div>
-                </div>
-                <ErrorBoundary>
-                  <EnhancedMap
-                    center={districtCoords}
-                    zoom={mapZoom}
-                    hotspots={hotspots}
-                    prediction={prediction}
-                    selectedDistrict={selectedDistrict}
-                    getRiskColor={getRiskColor}
-                    statePredictions={statePredictions}
-                    onStateSelect={handleStateSelect}
-                  />
-                </ErrorBoundary>
-              </div>
 
-              {/* Forecast highlight */}
-              <div className="card forecast-highlight-card">
-                <div className="card-header-modern">
-                  <div className="card-title">
-                    <ArrowUpRight className="card-icon" />
-                    <h3>Weekly Outbreak Forecast</h3>
-                  </div>
-                </div>
-                <div className="forecast-stat-container">
-                  <div className="main-stat-display">
-                    <span className="stat-label">PREDICTED INFECTIONS</span>
-                    <div className="large-stat-val" style={{ color: getRiskColor(prediction.risk_level) }}>
-                      <AnimatedCounter value={Math.round(prediction.predicted_cases_1w ?? 0)} />
+            {/* Loading skeleton for non-map panels */}
+            {loading && (
+              <>
+                <SkeletonMetric />
+                <SkeletonChart />
+              </>
+            )}
+
+            {/* Prediction-dependent panels */}
+            {prediction && (
+              <>
+                {/* Forecast highlight */}
+                <div className="card forecast-highlight-card">
+                  <div className="card-header-modern">
+                    <div className="card-title">
+                      <ArrowUpRight className="card-icon" />
+                      <h3>Weekly Outbreak Forecast</h3>
                     </div>
                   </div>
-                  <div className="forecast-timeline-steps">
-                    <div className="time-step">
-                      <span className="time-lbl">WEEK 2</span>
-                      <span className="time-val">{Math.round(prediction.predicted_cases_2w ?? 0)}</span>
-                    </div>
-                    <div className="time-step">
-                      <span className="time-lbl">WEEK 3</span>
-                      <span className="time-val">{Math.round(prediction.predicted_cases_3w ?? 0)}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Chart */}
-              <div className="card chart-card-modern">
-                <div className="card-header-modern">
-                  <div className="card-title">
-                    <Activity className="card-icon" />
-                    <h3>Outbreak Path (3-Week Trend)</h3>
-                  </div>
-                </div>
-                <div className="forecast-chart-wrapper">
-                  <Line data={chartData!} options={chartOptions} />
-                </div>
-              </div>
-
-              {/* Model breakdown */}
-              <div className="card decision-engines-card">
-                <div className="card-header-modern">
-                  <div className="card-title">
-                    <Disc className="card-icon" />
-                    <h3>Multimodel Inference Engine Breakdown</h3>
-                  </div>
-                </div>
-                <div className="engine-split-grid">
-                  {(["lstm", "xgb_reg", "xgb_clf", "ensemble"] as const).map((key) => {
-                    const label =
-                      key === "lstm" ? "LSTM Network"
-                      : key === "xgb_reg" ? "XGBoost Regressor"
-                      : key === "xgb_clf" ? "XGBoost Classifier"
-                      : "Ensemble Average";
-                    const value =
-                      key === "xgb_clf"
-                        ? prediction.xgb_clf === 1 ? "Outbreak" : "Normal"
-                        : prediction[key].toFixed(2);
-                    const barWidth =
-                      key === "xgb_clf"
-                        ? prediction.xgb_clf === 1 ? "100%" : "15%"
-                        : `${Math.min(100, (prediction[key === "lstm" ? "lstm" : key === "xgb_reg" ? "xgb_reg" : "ensemble"] / 60) * 100)}%`;
-                    const barColor =
-                      key === "lstm" ? "bg-blue"
-                      : key === "xgb_reg" ? "bg-purple"
-                      : key === "xgb_clf" ? "bg-rose"
-                      : "bg-emerald";
-                    const info = key !== "xgb_clf" ? modelInfo[key === "xgb_reg" ? "xgb" : key === "lstm" ? "lstm" : "ensemble"] : null;
-                    return (
-                      <div key={key} className="engine-metric-node">
-                        <span className="engine-name">
-                          {label}
-                          {info && (
-                            <InfoTooltip content={
-                              <div className="tp-content">
-                                <strong>{info.name}</strong>
-                                <p>{info.desc}</p>
-                              </div>
-                            }>
-                              <Info size={13} className="engine-info-icon" />
-                            </InfoTooltip>
-                          )}
-                        </span>
-                        <span className="engine-number">{value}</span>
-                        <div className="engine-track">
-                          <div className={`engine-bar ${barColor}`} style={{ width: barWidth }} />
-                        </div>
+                  <div className="forecast-stat-container">
+                    <div className="main-stat-display">
+                      <span className="stat-label">PREDICTED INFECTIONS</span>
+                      <div className="large-stat-val" style={{ color: getRiskColor(prediction.risk_level) }}>
+                        <AnimatedCounter value={Math.round(prediction.predicted_cases_1w ?? 0)} />
                       </div>
-                    );
-                  })}
+                    </div>
+                    <div className="forecast-timeline-steps">
+                      <div className="time-step">
+                        <span className="time-lbl">WEEK 2</span>
+                        <span className="time-val">{Math.round(prediction.predicted_cases_2w ?? 0)}</span>
+                      </div>
+                      <div className="time-step">
+                        <span className="time-lbl">WEEK 3</span>
+                        <span className="time-val">{Math.round(prediction.predicted_cases_3w ?? 0)}</span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
-          ) : (
-            <div className="empty-panel-state">
-              <Compass className="spinning-icon big-icon" />
-              <p>Select a target locator node to load epidemiological predictions.</p>
-            </div>
-          )}
+
+                {/* Chart */}
+                <div className="card chart-card-modern">
+                  <div className="card-header-modern">
+                    <div className="card-title">
+                      <Activity className="card-icon" />
+                      <h3>Outbreak Path (3-Week Trend)</h3>
+                    </div>
+                  </div>
+                  <div className="forecast-chart-wrapper">
+                    <Line data={chartData!} options={chartOptions} />
+                  </div>
+                </div>
+
+                {/* Model breakdown */}
+                <div className="card decision-engines-card">
+                  <div className="card-header-modern">
+                    <div className="card-title">
+                      <Disc className="card-icon" />
+                      <h3>Multimodel Inference Engine Breakdown</h3>
+                    </div>
+                  </div>
+                  <div className="engine-split-grid">
+                    {(["lstm", "xgb_reg", "xgb_clf", "ensemble"] as const).map((key) => {
+                      const label =
+                        key === "lstm" ? "LSTM Network"
+                        : key === "xgb_reg" ? "XGBoost Regressor"
+                        : key === "xgb_clf" ? "XGBoost Classifier"
+                        : "Ensemble Average";
+                      const value =
+                        key === "xgb_clf"
+                          ? prediction.xgb_clf === 1 ? "Outbreak" : "Normal"
+                          : prediction[key].toFixed(2);
+                      const barWidth =
+                        key === "xgb_clf"
+                          ? prediction.xgb_clf === 1 ? "100%" : "15%"
+                          : `${Math.min(100, (prediction[key === "lstm" ? "lstm" : key === "xgb_reg" ? "xgb_reg" : "ensemble"] / 60) * 100)}%`;
+                      const barColor =
+                        key === "lstm" ? "bg-blue"
+                        : key === "xgb_reg" ? "bg-purple"
+                        : key === "xgb_clf" ? "bg-rose"
+                        : "bg-emerald";
+                      const info = key !== "xgb_clf" ? modelInfo[key === "xgb_reg" ? "xgb" : key === "lstm" ? "lstm" : "ensemble"] : null;
+                      return (
+                        <div key={key} className="engine-metric-node">
+                          <span className="engine-name">
+                            {label}
+                            {info && (
+                              <InfoTooltip content={
+                                <div className="tp-content">
+                                  <strong>{info.name}</strong>
+                                  <p>{info.desc}</p>
+                                </div>
+                              }>
+                                <Info size={13} className="engine-info-icon" />
+                              </InfoTooltip>
+                            )}
+                          </span>
+                          <span className="engine-number">{value}</span>
+                          <div className="engine-track">
+                            <div className={`engine-bar ${barColor}`} style={{ width: barWidth }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
         </main>
       </div>
     </ErrorBoundary>
